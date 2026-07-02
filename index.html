@@ -89,6 +89,290 @@
             background-color: #218838;
         }
         
+        .form-footer {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            font-weight: 500;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .time-slot {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #0056b3;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+        .time-slot:hover, .time-slot.selected {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .close-modal {
+            float: right;
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: bold;
+            color: #888;
+        }
+        .close-modal:hover {
+            color: #000;
+        }
+        .selected-info {
+            font-size: 0.9em;
+            color: #555;
+            margin-top: 5px;
+            font-style: italic;
+            padding-left: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Agendamento - Farmácia Municipal</h2>
+    <form id="agendamentoForm">
+        
+        <div class="form-group">
+            <label for="nome">Nome Completo</label>
+            <input type="text" id="nome" required>
+        </div>
+
+        <div class="form-group">
+            <label for="cpf">CPF</label>
+            <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14" oninput="mascaraCPF(this)" required>
+        </div>
+
+        <div class="form-group">
+            <label for="dataNascimento">Data de Nascimento</label>
+            <input type="date" id="dataNascimento" required>
+        </div>
+
+        <div class="form-group">
+            <label for="endereco">Endereço</label>
+            <input type="text" id="endereco" placeholder="Rua, Número, Bairro" required>
+        </div>
+
+        <div class="form-group">
+            <label for="telefone">Telefone (WhatsApp)</label>
+            <input type="tel" id="telefone" placeholder="(00) 00000-0000" maxlength="15" oninput="mascaraTelefone(this)" required>
+        </div>
+
+        <div class="form-group">
+            <label>Primeiro atendimento?</label>
+            <div class="radio-group">
+                <label><input type="radio" name="primeiroAtendimento" value="Sim" required> Sim</label>
+                <label><input type="radio" name="primeiroAtendimento" value="Não"> Não</label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="ubs">UBS de Referência</label>
+            <select id="ubs" required>
+                <option value="">Selecione a UBS...</option>
+                <option value="ubs-jardim-john-kennedy">UBS Jardim John Kennedy</option>
+                <option value="ubs-centro">UBS Centro</option>
+                <option value="ubs-serraia">UBS Serraia</option>
+                <option value="ubs-san-rafael">UBS San Rafael</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="medicamentos">Medicamentos a Retirar</label>
+            <textarea id="medicamentos" rows="3" placeholder="Ex: Losartana 50mg, Metformina 850mg..." required></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="termino">Previsão de Término da Medicação Atual</label>
+            <input type="date" id="termino" required>
+        </div>
+
+        <div class="form-group">
+            <label>Agendamento da Retirada</label>
+            <button type="button" class="btn btn-schedule" onclick="openModal()">Abrir Caixa de Horários</button>
+            <div id="selectedDateTime" class="selected-info">Nenhuma data/horário selecionado.</div>
+            
+            <input type="hidden" id="dataAgendada" required>
+            <input type="hidden" id="horarioAgendado" required>
+        </div>
+
+        <button type="submit" class="btn">Confirmar Solicitação</button>
+        
+        <div class="form-footer">
+            By: An.Yoshi . 2025-2026
+        </div>
+    </form>
+</div>
+
+<div id="scheduleModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <h3>Escolha a Data e Horário</h3>
+        
+        <div class="form-group">
+            <label for="modalDate">Data Disponível</label>
+            <input type="date" id="modalDate" onchange="generateTimeSlots()">
+        </div>
+
+        <div class="form-group">
+            <label>Horários Disponíveis (08:00 às 17:00)</label>
+            <div id="timeGrid" class="time-grid">
+                </div>
+        </div>
+
+        <button type="button" class="btn" style="margin-top: 15px;" onclick="confirmSchedule()">Confirmar Escolha</button>
+    </div>
+</div>
+
+<script>
+    // === Máscaras Globais ===
+    function mascaraCPF(campo) {
+        let v = campo.value.replace(/\D/g, ""); 
+        v = v.replace(/(\d{3})(\d)/, "$1.$2");    
+        v = v.replace(/(\d{3})(\d)/, "$1.$2");    
+        v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2"); 
+        campo.value = v;
+    }
+
+    function mascaraTelefone(campo) {
+        let v = campo.value.replace(/\D/g, "");
+        v = v.replace(/^(\d{2})(\d)/g, "($1) $2"); 
+        v = v.replace(/(\d)(\d{4})$/, "$1-$2");    
+        campo.value = v;
+    }
+
+    // === Variáveis Globais de UI ===
+    let selectedTime = null;
+
+    function openModal() {
+        document.getElementById('scheduleModal').style.display = 'flex';
+        const modalDateInput = document.getElementById('modalDate');
+        if(!modalDateInput.value) {
+            // Usa o dia mínimo configurado pelo DOMContentLoaded
+            modalDateInput.value = modalDateInput.getAttribute('min');
+            generateTimeSlots();
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('scheduleModal').style.display = 'none';
+    }
+
+    function generateTimeSlots() {
+        const grid = document.getElementById('timeGrid');
+        grid.innerHTML = ''; 
+        selectedTime = null;
+
+        const startHour = 8;
+        const endHour = 16;
+        
+        for(let h = startHour; h <= endHour; h++) {
+            for(let m of ['00', '30']) {
+                if(h === 17 && m === '30') continue; 
+                
+                const timeString = `${h.toString().padStart(2, '0')}:${m}`;
+                const slot = document.createElement('div');
+                slot.className = 'time-slot';
+                slot.innerText = timeString;
+                
+                slot.onclick = function() {
+                    document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedTime = timeString;
+                };
+                
+                grid.appendChild(slot);
+            }
+        }
+    }
+
+    function confirmSchedule() {
+        const date = document.getElementById('modalDate').value;
+        if(!date || !selectedTime) {
+            alert('Por favor, escolha uma data no calendário e clique num dos horários.');
+            return;
+        }
+
+        const dateParts = date.split('-');
+        const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+
+        document.getElementById('dataAgendada').value = date;
+        document.getElementById('horarioAgendado').value = selectedTime;
+        document.getElementById('selectedDateTime').innerText = `✅ Agendado para: ${formattedDate} às ${selectedTime}`;
+        
+        closeModal();
+    }
+
+    // === Inicialização Segura (Corrige bugs no GitHub Pages) ===
+    document.addEventListener('DOMContentLoaded', function() {
+        // Corrige o bug de Fuso Horário Local, evitando que o calendário salte de dia na parte da noite
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now.getTime() - offset)).toISOString().split('T')[0];
+        
+        const modalDateInput = document.getElementById('modalDate');
+        if (modalDateInput) {
+            modalDateInput.setAttribute('min', localISOTime);
+        }
+
+        // Intercetação do Envio do Formulário
+        const form = document.getElementById('agendamentoForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault(); // Evita que a página dê reload no GitHub Pages
+                
+                const data = document.getElementById('dataAgendada').value;
+                const hora = document.getElementById('horarioAgendado').value;
+                
+                if(!data || !hora) {
+                    alert('É obrigatório abrir a caixa de horários e confirmar a data e a hora da recolha.');
+                    return;
+                }
+
+                // AQUI: Os dados foram processados com sucesso pelo front-end!
+                alert('Tudo certo com o formulário no GitHub Pages!\n\nNOTA: Para que as informações do agendamento sejam salvas e enviadas na vida real, precisará agora conectar este script de submissão ao Firebase (ou API similar).');
+                
+            });
+        }
+    });
+</script>
+
+</body>
+</html>
         /* Estilos do Rodapé */
         .form-footer {
             text-align: center;
